@@ -13,7 +13,7 @@ GUILD_ID = 1486940108862001276
 intents = discord.Intents.default()
 intents.members = True
 
-bot = commands.Bot(command_prefix=None, intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ---------------- DATABASE ----------------
 conn = sqlite3.connect("govsim.db")
