@@ -1129,7 +1129,7 @@ cursor.execute("""
     DO UPDATE SET amount = amount + ?
 """, (GOV_ACCOUNT, total, total))
 
-    conn.commit()
+conn.commit()
 
     await interaction.response.send_message(
         f"🏛️ Tax Collected Successfully\n\n"
