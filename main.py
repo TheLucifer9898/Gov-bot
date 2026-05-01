@@ -166,19 +166,24 @@ def get_tax_rate(tax_type: str):
     return row[0] if row else 0.0
 
 # ---------------- READY ----------------
+# ---------------- READY ----------------
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
-cursor.execute("""
-ALTER TABLE industries ADD COLUMN inputs TEXT DEFAULT ''
-""")
-conn.commit()
 
+    # 🔧 DB FIX (runs once safely)
+    cursor.execute("""
+    ALTER TABLE industries ADD COLUMN inputs TEXT DEFAULT ''
+    """)
+    conn.commit()
+
+    # 🏭 Start production system only once
     if not hasattr(bot, "production_started"):
         bot.loop.create_task(production_tick())
         bot.production_started = True
         print("🏭 Economy production system started")
 
+    # 🔄 Sync slash commands
     guild = discord.Object(id=GUILD_ID)
     synced = await bot.tree.sync(guild=guild)
 
