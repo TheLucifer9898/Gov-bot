@@ -167,6 +167,10 @@ def get_tax_rate(tax_type: str):
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+cursor.execute("""
+ALTER TABLE industries ADD COLUMN inputs TEXT DEFAULT ''
+""")
+conn.commit()
 
     if not hasattr(bot, "production_started"):
         bot.loop.create_task(production_tick())
