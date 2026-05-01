@@ -37,6 +37,7 @@ INSERT OR IGNORE INTO global_taxes VALUES ('service', 0.08)
 conn.commit()
 
 # ---------------- TABLES ----------------
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS citizens (
     user_id INTEGER PRIMARY KEY,
@@ -70,7 +71,6 @@ CREATE TABLE IF NOT EXISTS resources (
 )
 """)
 
-conn.commit()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS market (
     resource TEXT PRIMARY KEY,
@@ -80,7 +80,6 @@ CREATE TABLE IF NOT EXISTS market (
 )
 """)
 
-conn.commit()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS industries (
     company_name TEXT PRIMARY KEY,
@@ -92,8 +91,6 @@ CREATE TABLE IF NOT EXISTS industries (
     last_tick INTEGER
 )
 """)
-cursor.execute("DROP TABLE IF EXISTS industries")
-conn.commit()
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS employees (
@@ -105,7 +102,6 @@ CREATE TABLE IF NOT EXISTS employees (
 )
 """)
 
-conn.commit()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS service_companies (
     company_name TEXT PRIMARY KEY,
@@ -120,9 +116,18 @@ conn.commit()
 SECONDS_IN_DAY = 86400
 
 
+# ---------------- GOV ACCOUNT INIT ----------------
+GOV_ACCOUNT = "Ministry of Finance"
+
+cursor.execute("""
+INSERT OR IGNORE INTO balances VALUES (?, 'Cash', 0)
+""", (GOV_ACCOUNT,))
+
+conn.commit()
 
 
 # ---------------- HELPERS ----------------
+
 def get_next_cid():
     cursor.execute("SELECT MAX(cid) FROM citizens")
     last = cursor.fetchone()[0]
@@ -130,10 +135,17 @@ def get_next_cid():
 
 
 def ensure_balance(account, resource):
-    cursor.execute(
-        "INSERT OR IGNORE INTO balances VALUES (?, ?, 0)",
-        (account, resource)
-    )
+    cursor.execute("""
+        INSERT OR IGNORE INTO balances VALUES (?, ?, 0)
+    """, (account, resource))
+
+
+def ensure_account_balance(account_name, resource):
+    cursor.execute("""
+        INSERT OR IGNORE INTO balances VALUES (?, ?, 0)
+    """, (account_name, resource))
+
+
 def has_access(interaction, account_name):
     cursor.execute("""
         SELECT owner_id FROM accounts WHERE account_name=?
@@ -145,51 +157,44 @@ def has_access(interaction, account_name):
         return False
 
     owner_id = row[0]
-
     return interaction.user.id == owner_id or interaction.user.guild_permissions.administrator
-def ensure_account_balance(account_name, resource):
-    cursor.execute("""
-        INSERT OR IGNORE INTO balances VALUES (?, ?, 0)
-    """, (account_name, resource))
-GOV_ACCOUNT = "Ministry of Finance"
-cursor.execute("""
-INSERT OR IGNORE INTO balances VALUES (?, 'Cash', 0)
-""", (GOV_ACCOUNT,))
 
-conn.commit()
+
 def get_tax_rate(tax_type: str):
     cursor.execute("""
         SELECT rate FROM global_taxes WHERE tax_type=?
     """, (tax_type,))
-    
+
     row = cursor.fetchone()
     return row[0] if row else 0.0
 
-# ---------------- READY ----------------
-# ---------------- READY ----------------
+
+# ---------------- READY (SAFE MIGRATION) ----------------
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
 
-    # FIX DATABASE MIGRATION SAFE
+    # ---------------- SAFE COLUMN MIGRATION ----------------
     cursor.execute("PRAGMA table_info(industries)")
     cols = [col[1] for col in cursor.fetchall()]
 
     if "inputs" not in cols:
         cursor.execute("ALTER TABLE industries ADD COLUMN inputs TEXT DEFAULT ''")
         conn.commit()
+        print("✅ Added missing column: inputs")
 
-    # START TASK ONLY ONCE
+    # ---------------- START ECONOMY LOOP ONLY ONCE ----------------
     if not hasattr(bot, "production_started"):
         bot.loop.create_task(production_tick())
         bot.production_started = True
         print("🏭 Economy system started")
 
+    # ---------------- SYNC COMMANDS ----------------
     guild = discord.Object(id=GUILD_ID)
     synced = await bot.tree.sync(guild=guild)
 
     print(f"✅ Synced {len(synced)} commands")
-
 # =========================================================
 # REGISTER CITIZEN (NO ACCOUNT CREATED HERE)
 # =========================================================
