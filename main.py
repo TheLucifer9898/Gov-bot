@@ -86,12 +86,14 @@ CREATE TABLE IF NOT EXISTS industries (
     company_name TEXT PRIMARY KEY,
     owner_id INTEGER,
     produced_resource TEXT,
-    inputs TEXT,
+    inputs TEXT DEFAULT '',
     level INTEGER,
     employees INTEGER,
     last_tick INTEGER
 )
 """)
+cursor.execute("DROP TABLE IF EXISTS industries")
+conn.commit()
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS employees (
