@@ -171,27 +171,24 @@ def get_tax_rate(tax_type: str):
 async def on_ready():
     print(f"Logged in as {bot.user}")
 
-    # 🔧 DB FIX (runs once safely)
-    cursor.execute("""
-    ALTER TABLE industries ADD COLUMN inputs TEXT DEFAULT ''
-    """)
-    conn.commit()
+    # FIX DATABASE MIGRATION SAFE
+    cursor.execute("PRAGMA table_info(industries)")
+    cols = [col[1] for col in cursor.fetchall()]
 
-    # 🏭 Start production system only once
+    if "inputs" not in cols:
+        cursor.execute("ALTER TABLE industries ADD COLUMN inputs TEXT DEFAULT ''")
+        conn.commit()
+
+    # START TASK ONLY ONCE
     if not hasattr(bot, "production_started"):
         bot.loop.create_task(production_tick())
         bot.production_started = True
-        print("🏭 Economy production system started")
+        print("🏭 Economy system started")
 
-    # 🔄 Sync slash commands
     guild = discord.Object(id=GUILD_ID)
     synced = await bot.tree.sync(guild=guild)
 
     print(f"✅ Synced {len(synced)} commands")
-
-    # start economy production loop (only once)
-    bot.loop.create_task(production_tick())
-    print("🏭 Economy production system started")
 
 # =========================================================
 # REGISTER CITIZEN (NO ACCOUNT CREATED HERE)
@@ -1126,11 +1123,11 @@ async def collect_tax(interaction: discord.Interaction):
     # ================= GIVE TO GOVERNMENT =================
     total = industry_collected + service_collected
 
-    cursor.execute("""
-        INSERT INTO balances VALUES ('GOVT_ACCOUNT', 'Cash', ?)
-        ON CONFLICT(account_name, resource)
-        DO UPDATE SET amount = amount + ?
-    """, (total, total))
+cursor.execute("""
+    INSERT INTO balances VALUES (?, 'Cash', ?)
+    ON CONFLICT(account_name, resource)
+    DO UPDATE SET amount = amount + ?
+""", (GOV_ACCOUNT, total, total))
 
     conn.commit()
 
